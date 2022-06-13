@@ -1,0 +1,10 @@
+struct Table {
+}
+
+fn new_table() &Table {
+	table := &Table{}
+	// table.info << builtin_types
+	// table.names = builtin_type_names.move()
+	return table
+}
+

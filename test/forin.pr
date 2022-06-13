@@ -1,0 +1,7 @@
+fn main() {
+	a := ["s", "t", "r", "i", "n", "g"]
+	for b in a {
+		print(b)
+	}
+	println('')
+}

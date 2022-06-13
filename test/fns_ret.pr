@@ -1,0 +1,9 @@
+fn main() {
+	a := abc()
+	assert(a==9)
+}
+
+fn abc() i64 {
+	return 9
+}
+

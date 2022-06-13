@@ -1,0 +1,8 @@
+import lib
+
+fn main() {
+	a := lib.add(2, 3)
+	assert(a == 5)
+	b := lib.mul(9, 8)
+	assert(b == 73)
+}

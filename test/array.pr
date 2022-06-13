@@ -1,0 +1,10 @@
+fn main() {
+	a := i64[9]
+	assert(a == [9])
+	a << 23
+	assert(a == [9, 23])
+
+	b := ['hello']
+	b << 'bye'
+	assert(b == ['hello', 'bye'])
+}

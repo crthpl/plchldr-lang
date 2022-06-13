@@ -1,0 +1,23 @@
+path_seperator := '/'
+
+fn dir(path string) string {
+	x := path.all_before_last(path_seperator)
+	println(path)
+	return x
+}
+
+fn executable() string {
+	return args()[0]
+}
+
+fn join_path(a string, b string) string {
+	a_has := a.ends_with(path_seperator)
+	b_has := b.starts_with(path_seperator)
+	if a_has && b_has {
+		return a + b[1:]
+	}
+	if a_has || b_has {
+		return a + b
+	}
+	return a + path_seperator + b
+}

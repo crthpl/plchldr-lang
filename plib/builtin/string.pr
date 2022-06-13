@@ -1,0 +1,24 @@
+fn (s string) all_before_last(r string) string {
+	print('r: ')
+	println(r)
+	print('s:ddddddddddddd\n\n\n ')
+	println(s)
+	last := -1
+	for i, _ in s {
+		if s[i:i+s.len] == r {
+			last = i
+		}
+	}
+	if last == -1 {
+		return ''
+	}
+	return s[:last]
+}
+
+fn (s string) starts_with(r string) bool {
+	return s[0:r.len] == r
+}
+
+fn (s string) ends_with(r string) bool {
+	return s[s.len-r.len:s.len] == r
+}

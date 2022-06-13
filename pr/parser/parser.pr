@@ -1,0 +1,15 @@
+import ast
+import scanner
+import os
+
+fn parse(main_file string, table &ast.Table) []&ast.File {
+	return parse_file(main_file, table, [os.dir(main_file),
+		os.join_path(os.dir(os.executable()),
+		'plib')], 'main', 'main')
+}
+
+fn parse_file(file string, table &ast.Table, search_paths []string, mod string, full_mod string) []&ast.File {
+	toks := scanner.scan(file)
+	println('toks:')
+	println(toks)
+}
