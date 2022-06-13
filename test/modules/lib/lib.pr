@@ -1,0 +1,9 @@
+import lib.sublib
+
+fn add(a i64, b i64) i64 {
+	return a + b
+}
+
+fn mul(a i64, b i64) i64 {
+	return sublib.mul(a, b)
+}

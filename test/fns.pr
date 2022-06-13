@@ -1,0 +1,11 @@
+fn main() {
+	b := 123
+	abc(b+9)
+	assert(b == 123)
+}
+
+fn abc(a i64) {
+	b := a
+	assert(b / 3 == 44)
+}
+

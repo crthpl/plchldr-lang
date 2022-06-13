@@ -1,0 +1,8 @@
+# Binaries
+main
+plchldr
+*.exe
+*.exe~
+*.so
+*.dylib
+*.dll

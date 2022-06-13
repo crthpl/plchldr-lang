@@ -1,0 +1,31 @@
+import ast
+import parser
+// import checker
+// import eval
+
+fn main() {
+	files := string[]
+	match args().len {
+		1 {
+			eprintln('todo: repl')
+			exit(1)
+		}
+		else {
+			files << args()[1]
+		}
+	}
+	println(files)
+	asts := &ast.File[]
+	table := ast.new_table()
+	println(asts)
+	println(table)
+	for file in files {
+		ast := parser.parse(file, table)
+		println(ast)
+		asts << ast
+	}
+	//for ast in asts {
+	//	checker.check(ast, table)
+	//}
+	//eval.eval(asts, table)
+}
