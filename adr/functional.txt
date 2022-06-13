@@ -1,0 +1,75 @@
+usable
+general purpose
+idealistic
+functional
+?
+curly-brace, possible square-brace, possible haskell/elixir
+functions:
+exact number
+param names in call
+rest params, named params+default params, optional params
+l-r
+zero or more
+first-class functions, n/a because functional
+recursive
+fn equality
+anon fns
+types:
+static, somewhat strong, implicit
+primitive != reference
+different types for bitsize and floats and ratios
+seperate character types in stdlib, bool type
+its known at compile time anyway, typeof works anyway
+yes, sort of, maybe
+no, but struct embedding
+no classes, but can define new types
+sum & product
+yes (exponential types)
+pointer types
+internally, and unsafe {}
+generics, ?
+? prob no
+expressions:
+possible lazy evaluation for optimisation
+whatever max sense for operator
+overloadable, function name is operator
+precedence is constant
+lots of type inference
+always immutable
+n/a because functional
+with match {}, like in V
+variable in parent scope is visible in child scope
+`pub`, default private
+no super-local
+? maybe shadowing
+yes, user defined this var (if method)
+control flow:
+expression-oriented
+?
+?
+top-to-bottom
+short-circuit, ?, ?
+all loops
+break, continue, no retry/redo
+no exceptions, more like rust/v optionals/results
+with stdlib
+no goto
+concurrency
+threads
+non-mutable shared memory, message passing
+?
+fn.go(args)
+die when fn returns, or when any thread calls exit()
+thread.parent()
+maybe promise
+channel is a value
+?
+?
+? no
+meta:
+compile-time
+yes, with stack trace
+yes, with debug information maybe (not recommended?)
+no macros
+n/a
+n/a

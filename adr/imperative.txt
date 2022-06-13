@@ -1,0 +1,74 @@
+usable
+general-purpose
+idealistic
+plain-imperative, some functional
+?
+curly-brace (possible square-brace)
+functions:
+exact number
+param names
+rest params, optional params (with default values)
+depends on fn signature
+l-r
+return with last expression in block, zero or more values
+first class functions, shallow binding
+recursive functions
+fn can be tested for equality, normally shallow equality
+anon fns
+types:
+static, somewhat strong, implicit
+primitive types != reference types
+different types for bit sizes, also floats and ratios
+seperate rune type (32-bit), seperate string type in stdlib, seperate bool type
+expression is known at compile time, for sum types type is known at runtime
+types have fields & methods
+struct embedding, name collision = unable to access field without explicit struct.Embedded.field
+? new types can be defined
+sum & product types
+fn types
+pointer types
+generics
+yes
+expressions:
+lazy evaluation for optimisation
+-fix of operator depends on operator
+overloading with operator as fn name of method
+precedence is constant; operator must be used as intended
+lots of type inference
+default immutable, mut = mutable
+vars are assigned
+no destructing, pattern matching like rust/v
+can always access vars from parent scopes
+pub = public, default private
+see 2 above
+no shawdowing
+this var is defined by user
+control flow:
+expression oriented, except declaration (var decl, fn decl, etc.)
+?
+?
+top-to-bottom
+short-circuit but only for opt, ?, ?
+all the loops
+break, continue, no retry/redo
+no exceptions, option/result like rust/v
+in stdlib
+no goto
+concurrency:
+threads
+muttable shared memory, message passing, locks, memory ownership can be passed through channels
+explicit invocation: fn.go(args)
+die when return
+threadlib.parent()
+channels are variables
+both synchronous and asynchronous message passing
+?
+threadlib.state()
+meta:
+at compile time
+at runtime with stack trace
+no, no, sort of with hashmap
+maybe macro, ast based
+?
+hygenic, vars can be passed to macros (something like #macroname($varname, 5))
+
