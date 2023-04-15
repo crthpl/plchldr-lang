@@ -1,37 +1,29 @@
 module ast
 
-pub type Type = int
-
-pub const (
-	void_type      = Type(1)
-	i64_type       = Type(2)
-	u64_type       = Type(3)
-	bool_type      = Type(4)
-	rune_type      = Type(5)
-	string_type    = Type(6)
-	err_type       = Type(7)
-	stringarr_type = Type(8)
-)
+type Type = int
 
 const (
 	builtin_type_names = {
-		'placeholder': 0
-		'void':        void_type
-		'i64':         i64_type
-		'u64':         u64_type
-		'bool':        bool_type
-		'rune':        rune_type
-		'string':      string_type
-		'err':         err_type
+		'placeholder': Builtin.placeholder
+		'void':        Builtin.void
+		'i64':         Builtin.i64
+		'u64':         Builtin.u64
+		'bool':        Builtin.bool
+		'rune':        Builtin.rune
+		'string':      Builtin.string
+		'err':         Builtin.err
 	}
 )
 
-pub type Info = Array | Builtin | Multi | Ptr | Struct
+pub type Info = Array | Builtin | Enum | Map | Multi | Placeholder | Ptr | Struct
 
 pub fn (i Info) str() string {
 	match i {
 		Array {
 			return '[]' + i.of.str()
+		}
+		Enum {
+			return 'enum $i.name { ' + i.fields.join(', ') + ' }'
 		}
 		Builtin {
 			return i.str()
@@ -43,11 +35,17 @@ pub fn (i Info) str() string {
 			}
 			return '(' + strs.join(', ') + ')'
 		}
+		Placeholder {
+			return 'placeholder(${string(i)})'
+		}
 		Ptr {
 			return '&' + i.of.str()
 		}
 		Struct {
 			return i.name
+		}
+		Map {
+			return 'map[$i.left]$i.right'
 		}
 	}
 }
@@ -72,9 +70,22 @@ pub enum Builtin {
 	rune
 	string
 	err
+	stringarr // workaround
+}
+
+pub fn (b Builtin) typ() Type {
+	return Type(b)
+}
+
+pub struct Map {
+pub:
+	left  Info
+	right Info
 }
 
 pub type Multi = []Info
+
+pub type Placeholder = string
 
 pub struct Ptr {
 	of Info

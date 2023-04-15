@@ -47,20 +47,46 @@ fn (mut p Parser) type_decl() ast.Stmt {
 			p.check(.lcbr)
 			mut field_names := []string{}
 			mut types := []ast.Type{}
+			mut embeds := []ast.Type{}
 			for p.tok.kind != .rcbr {
-				field_names << p.tok.lit
-				p.check(.name)
-				types << p.parse_type()
+				if p.is_type() {
+					embeds << p.parse_type()
+				} else {
+					field_names << p.tok.lit
+					p.check(.name)
+					types << p.parse_type()
+				}
 			}
 			p.check(.rcbr)
 			s := ast.Struct{
 				name: name
 				field_names: field_names
 				types: types
+				embeds: embeds
 				pos: pos
 			}
 			p.table.register_type(p.full_mod + '.' + name, s)
 			return s
+		}
+		.key_enum {
+			pos := p.tok.Pos
+			p.check(.key_enum)
+			name := p.tok.lit
+			p.check(.name)
+			p.check(.lcbr)
+			mut fields := []string{}
+			for p.tok.kind != .rcbr {
+				fields << p.tok.lit
+				p.check(.name)
+			}
+			p.check(.rcbr)
+			e := ast.Enum{
+				name: name
+				fields: fields
+				pos: pos
+			}
+			p.table.register_type(p.full_mod + '.' + name, e)
+			return e
 		}
 		else {
 			p.error('invalid type_decl call')
@@ -80,6 +106,21 @@ fn (mut p Parser) with_type() ast.Expr {
 		}
 		.lcbr {
 			return p.struct_init()
+		}
+		.dot {
+			return p.literal()
+		}
+		.lpar {
+			pos := p.tok.Pos
+			totyp := p.parse_type()
+			p.check(.lpar)
+			expr := p.expr(0)
+			p.check(.rpar)
+			return ast.CastExpr{
+				totyp: totyp
+				expr: expr
+				pos: pos
+			}
 		}
 		else {
 			p.error('unexpected `${p.peek(dist).kind}` after type')
@@ -103,7 +144,9 @@ fn (mut p Parser) parse_type() ast.Type {
 			} else {
 				p.check(.name)
 				return p.table.find_type('${p.full_mod}.$p.prev.lit') or {
-					p.table.find_type('$p.prev.lit') or { p.error('unknown type: $p.prev.lit') }
+					p.table.find_type('$p.prev.lit') or {
+						p.table.wget_type(ast.Placeholder(p.prev.lit))
+					}
 				}
 			}
 		}
@@ -123,5 +166,5 @@ fn (mut p Parser) parse_type() ast.Type {
 		else {}
 	}
 	p.error('invalid type: `$p.tok.kind`')
-	return ast.void_type
+	return ast.Builtin.void.typ()
 }

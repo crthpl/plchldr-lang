@@ -45,6 +45,7 @@ pub fn scan(file string) []token.Token {
 			}
 			`'` {
 				i++
+				col++
 				start := i
 				start_col := col
 				start_line := line
@@ -78,14 +79,21 @@ pub fn scan(file string) []token.Token {
 				i--
 			}
 			`"` {
-				i += 2
-				col += 2
+				i++
+				col++
+				start := i
+				start_col := col
+				start_line := line
+				for text[i] != `"` || (text[i] == `"` && text[i - 1] == `\\`) {
+					i++
+					col++
+				}
 				toks << token.Token{
 					kind: .rune
-					lit: text[i - 1..i]
-					i: i - 1
-					line: line
-					col: col - 1
+					lit: text[start..i]
+					i: start
+					line: start_line
+					col: start_col
 				}
 			}
 			else {
@@ -93,9 +101,13 @@ pub fn scan(file string) []token.Token {
 					for text[i] != `\n` {
 						i++
 					}
+					i--
 					continue
 				}
-				for l := 2; l != 0; l-- {
+				for l := 3; l != 0; l-- {
+					if i + l - 0 > text.len {
+						continue
+					}
 					kind := token.operators[text[i..i + l]] or { continue }
 					toks << token.Token{
 						kind: kind
@@ -106,7 +118,7 @@ pub fn scan(file string) []token.Token {
 					i += l - 1
 					continue outer
 				}
-				eprintln('error: unknown char: `${text[i].ascii_str()}`')
+				eprintln('error:$line:$col: unknown char: `${text[i].ascii_str()}`')
 				exit(1)
 			}
 		}

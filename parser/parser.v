@@ -19,10 +19,14 @@ mut:
 	tok      token.Token
 	prev     token.Token
 	scope    &ast.Scope
+	label    string
 }
 
 pub fn parse(main_file string, table &ast.Table) []&ast.File {
 	mut parsed_files := []string{}
+	defer {
+		table.print_path_sep('start of parse')
+	}
 	return parse_file(main_file, table, [os.dir(main_file),
 		os.join_path(os.dir(os.executable()), 'plib')], 'main', 'main', mut parsed_files)
 }
@@ -34,15 +38,17 @@ fn parse_file(file string, table &ast.Table, search_paths []string, mod string, 
 		full_mod: full_mod
 		file: &ast.File{
 			filename: file
+			full_mod: full_mod
 			imports: {
 				mod:       full_mod
 				'builtin': 'builtin'
 			}
-			full_mod: full_mod
+			scope: 0
 		}
 		toks: scanner.scan(file)
 		scope: ast.new_scope(table.global_scope, 0, file)
 	}
+	p.file.scope = p.scope
 	p.tokidx = 0
 	p.next()
 	p.next()
@@ -64,7 +70,7 @@ fn parse_file(file string, table &ast.Table, search_paths []string, mod string, 
 				break
 			}
 			if !success {
-				p.error('module not found: $full_submod')
+				p.error('module not found: ${full_submod}')
 				continue
 			}
 
@@ -88,14 +94,51 @@ fn parse_file(file string, table &ast.Table, search_paths []string, mod string, 
 }
 
 fn (mut p Parser) parse() {
-	mut stmts := []ast.Stmt{}
+	mut decls := []string{}
+	mut methods := []&ast.FnStmt{}
 	for p.tok.kind != .eof {
-		stmts << p.stmt()
+		p.table.print_path_sep('start of parse loop')
+		match p.tok.kind {
+			.key_fn {
+				fun := p.fun()
+				if fun.is_method {
+					methods << fun
+				} else {
+					decls << fun.name
+					p.table.decls[p.full_mod][fun.name] = fun
+				}
+			}
+			.key_struct, .key_enum {
+				decl := p.type_decl()
+				if decl is ast.Struct {
+					decls << decl.name
+					p.table.decls[p.full_mod][decl.name] = &decl
+				} else if decl is ast.Enum {
+					decls << decl.name
+					p.table.decls[p.full_mod][decl.name] = &decl
+				} else {
+					panic('unknown type decl ${decl.type_name()}')
+				}
+			}
+			.name {
+				if p.peek.kind == .decl_assign {
+					assign := p.stmt()
+					name := ((assign as ast.AssignStmt).left as ast.Ident).name
+					decls << name
+					p.table.decls[p.full_mod][name] = &assign
+					println('~${p.full_mod}:${name}~')
+					p.table.print_path_sep('after parsing assign')
+				} else {
+					p.error('unexpected ${p.peek.kind} after name in declaration')
+				}
+			}
+			else {
+				p.error('unexpected ${p.tok.kind} in declaration')
+			}
+		}
 	}
-	p.file.decls = ast.Block{
-		stmts: stmts
-		scope: p.scope
-	}
+	p.file.decls = decls
+	p.file.methods = methods
 }
 
 fn (mut p Parser) next() {
@@ -125,7 +168,7 @@ fn (mut p Parser) error(err string) {
 
 fn (mut p Parser) check(kind token.Kind) {
 	if p.tok.kind != kind {
-		p.error('unexpected $p.tok.kind, expecting $kind')
+		p.error('unexpected ${p.tok.kind}, expecting ${kind}')
 	}
 	p.next()
 }
@@ -151,12 +194,12 @@ fn (mut p Parser) parse_imports() {
 		p.check(.name)
 		for p.tok.kind == .dot {
 			p.next()
-			name += '.$p.tok.lit'
+			name += '.${p.tok.lit}'
 			last = p.tok.lit
 			p.check(.name)
 		}
 		if last in p.file.imports {
-			p.error('duplicate import: `$last` already exists')
+			p.error('duplicate import: `${last}` already exists')
 		}
 		p.file.imports[last] = name
 	}

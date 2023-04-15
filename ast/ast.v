@@ -8,7 +8,9 @@ pub:
 	filename string
 	full_mod string
 pub mut:
-	decls   Block
+	scope   &Scope
+	decls   []string
+	methods []&FnStmt
 	imports map[string]string // c -> a.b.c
 }
 
@@ -21,20 +23,23 @@ pub mut:
 
 pub type Stmt = AssignStmt
 	| EmptyStmt
+	| Enum
 	| Expr
 	| FnStmt
+	| For
 	| ForC
 	| ForIn
 	| ForInN
 	| ForInf
 	| ImportStmt
+	| Label
 	| ReturnStmt
 	| Struct
 
 pub struct AssignStmt {
 pub:
-	op  token.Kind
 	pos token.Pos
+	op  token.Kind
 pub mut:
 	left       Expr
 	right      Expr
@@ -56,23 +61,34 @@ pub fn empty_stmt(pos token.Pos) EmptyStmt {
 [heap]
 pub struct FnStmt {
 pub:
+	pos        token.Pos
+	is_method  bool
 	file       &File
 	full_mod   string
 	short_name string
 	name       string
 	recv       FnArg
-	pos        token.Pos
 pub mut:
 	stmts Block
 	args  []FnArg
 	rets  []Type
 }
 
+pub struct For {
+pub:
+	pos   token.Pos
+	label string
+pub mut:
+	stmts Block
+	expr  Expr
+}
+
 pub struct ForIn {
 pub:
-	var  string // a in `for a in b` or `for i, a in b`
-	iter string // i in `for i, a in b`
-	pos  token.Pos
+	pos   token.Pos
+	var   string // a in `for a in b` or `for i, a in b`
+	iter  string // i in `for i, a in b`
+	label string
 pub mut:
 	stmts Block
 	expr  Expr
@@ -80,24 +96,27 @@ pub mut:
 
 pub struct ForInN {
 pub:
-	var  string
-	low  string
-	high string
-	pos  token.Pos
+	pos   token.Pos
+	var   string
+	low   string
+	high  string
+	label string
 pub mut:
 	stmts Block
 }
 
 pub struct ForInf {
 pub:
-	pos token.Pos
+	pos   token.Pos
+	label string
 pub mut:
 	stmts Block
 }
 
 pub struct ForC {
 pub:
-	pos token.Pos
+	pos   token.Pos
+	label string
 pub mut:
 	init  Stmt
 	cond  Expr
@@ -106,10 +125,10 @@ pub mut:
 }
 
 pub struct ImportStmt {
+pub:
+	pos  token.Pos
 	name string
 	last string
-pub:
-	pos token.Pos
 }
 
 pub struct ReturnStmt {
@@ -119,6 +138,21 @@ pub mut:
 	expr Expr
 }
 
+pub struct Label {
+pub:
+	pos   token.Pos
+	label string
+}
+
+pub struct Struct {
+pub:
+	pos         token.Pos
+	name        string
+	field_names []string
+	types       []Type
+	embeds      []Type
+}
+
 pub struct FnArg {
 pub:
 	pos  token.Pos
@@ -126,34 +160,34 @@ pub:
 	typ  Type
 }
 
-pub struct Struct {
+pub struct Enum {
 pub:
-	name        string
-	field_names []string
-	types       []Type
-	pos         token.Pos
+	pos    token.Pos
+	name   string
+	fields []string
 }
 
 pub type Expr = ArrayInit
-	| BoolLiteral
 	| CallExpr
+	| CastExpr
 	| EmptyExpr
 	| Ident
 	| IfExpr
 	| IndexExpr
 	| InfixExpr
-	| IntegerLiteral
+	| Literal
+	| MapInit
 	| MatchExpr
 	| PrefixExpr
-	| RuneLiteral
 	| SelectorExpr
-	| StringLiteral
 	| StructInit
+
+pub type Literal = BoolLiteral | EnumLiteral | IntegerLiteral | RuneLiteral | StringLiteral
 
 pub struct ArrayInit {
 pub:
-	elems []Expr
 	pos   token.Pos
+	elems []Expr
 pub mut:
 	typ       Type
 	elem_type Type
@@ -167,12 +201,21 @@ pub:
 
 pub struct CallExpr {
 pub:
-	args []Expr
 	pos  token.Pos
+	args []Expr
 pub mut:
 	left      Expr
 	left_type Type
 	typ       Type
+}
+
+pub struct CastExpr {
+pub:
+	pos token.Pos
+pub mut:
+	totyp   Type
+	fromtyp Type
+	expr    Expr
 }
 
 pub fn empty_expr() Expr {
@@ -184,10 +227,18 @@ pub:
 	pos token.Pos
 }
 
+pub struct EnumLiteral {
+pub:
+	pos   token.Pos
+	field string
+pub mut:
+	typ Type
+}
+
 pub struct Ident {
 pub:
-	name string
 	pos  token.Pos
+	name string
 }
 
 pub struct IfExpr {
@@ -207,18 +258,19 @@ pub enum IndexType {
 
 pub struct IndexExpr {
 pub:
-	typ IndexType
 	pos token.Pos
+	typ IndexType
 pub mut:
-	left   Expr
-	index  Expr
-	index2 Expr
+	left    Expr
+	index   Expr
+	index2  Expr
+	or_expr OrExpr
 }
 
 pub struct InfixExpr {
 pub:
-	op  token.Kind
 	pos token.Pos
+	op  token.Kind
 pub mut:
 	left       Expr
 	right      Expr
@@ -228,32 +280,68 @@ pub mut:
 
 pub struct IntegerLiteral {
 pub:
-	val string
 	pos token.Pos
+	val string
+}
+
+pub struct MapInit {
+pub:
+	pos token.Pos
+pub mut:
+	left       []Expr
+	right      []Expr
+	left_type  Type
+	right_type Type
+	typ        Type
+}
+
+pub type MatchCond = Literal | Range
+
+pub fn (m []MatchCond) pos() token.Pos {
+	first := m.first()
+	last := m.last()
+	return match first {
+		Literal {
+			first.pos.extend(last.pos)
+		}
+		Range {
+			first.pos.extend(last.pos)
+		}
+	}
+}
+
+pub struct Range {
+pub:
+	pos       token.Pos
+	inclusive bool // true: [], false: [)
+pub mut:
+	from Literal
+	to   Literal
 }
 
 pub struct MatchExpr {
 pub:
-	bexprs []Expr
-	elsei  int
-	pos    token.Pos
+	pos      token.Pos
+	conds    [][]MatchCond
+	has_else bool
 pub mut:
-	stmtss []Block
-	expr   Expr
+	stmtss    []Block
+	expr      Expr
+	expr_type Type
 }
 
 pub struct PrefixExpr {
 pub:
-	op  token.Kind
 	pos token.Pos
+	op  token.Kind
 pub mut:
 	right Expr
 }
 
 pub struct RuneLiteral {
 pub:
-	val rune
 	pos token.Pos
+	val rune
 }
 
 pub struct SelectorExpr {
@@ -268,14 +356,23 @@ pub mut:
 
 pub struct StringLiteral {
 pub:
-	val string
 	pos token.Pos
+	val string
 }
 
 pub struct StructInit {
 pub:
+	pos   token.Pos
 	typ   Type
 	left  []Expr
 	right []Expr
-	pos   token.Pos
+}
+
+pub struct OrExpr {
+pub:
+	pos    token.Pos
+	exists bool
+	stmts  Block
+pub mut:
+	typ Type
 }

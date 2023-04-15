@@ -6,8 +6,6 @@ import parser
 import checker
 import eval
 
-// #flag -I/usr/lib/gcc/x86_64-pc-linux-gnu/11.1.0/include // wat
-
 fn main() {
 	mut files := []string{}
 	match os.args.len {
@@ -25,6 +23,7 @@ fn main() {
 		ast := parser.parse(file, table)
 		asts << ast
 	}
+	table.print_path_sep('between parsing and checking')
 	mut has_error := false
 	for mut ast in asts {
 		has_error = has_error || checker.check(mut *ast, table)

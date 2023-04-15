@@ -25,17 +25,22 @@ pub fn eval(asts []&ast.File, table &ast.Table) {
 	for file in asts {
 		e.file = file
 		e.modules[file.full_mod] = {}
-		for decl in file.decls.stmts {
+		for name in file.decls {
+			decl := e.table.decls[file.full_mod][name] or {
+				e.error('could not find declaration $name in module $file.full_mod', token.Pos{})
+			}
 			match decl {
 				ast.FnStmt {
-					e.modules[decl.full_mod][decl.short_name] = Object(ast.FnStmt{
+					e.modules[decl.full_mod][name] = Object(ast.FnStmt{
 						...decl
+						stmts: decl.stmts
+						file: decl.file
 					})
 					if decl.name == 'main.main' && decl.full_mod == 'main' {
 						main_file = file
 					}
 				}
-				ast.ImportStmt, ast.Struct {}
+				ast.ImportStmt, ast.Struct, ast.Enum {}
 				ast.AssignStmt {
 					if decl.op != .decl_assign {
 						e.error('top-level assignment only allowed with decleration assignment',
@@ -147,9 +152,24 @@ fn (mut e Eval) stmt(stmt ast.Stmt) Val {
 		ast.Struct {
 			e.error('struct can only be top-level', stmt.pos)
 		}
+		ast.Enum {
+			e.error('enum can only be top-level', stmt.pos)
+		}
+		ast.Label {
+			return Void{}
+		}
 		ast.ReturnStmt {
 			e.returning = true
 			return e.expr(stmt.expr)
+		}
+		ast.For {
+			for {
+				e.stmts(stmt.stmts)
+				if e.breaking {
+					break
+				}
+			}
+			return Void{}
 		}
 		ast.ForIn {
 			var := ast.Ident{
@@ -177,7 +197,7 @@ fn (mut e Eval) stmt(stmt ast.Stmt) Val {
 					}
 					e.stmts(stmt.stmts)
 					if e.breaking {
-						break
+						return Void{}
 					}
 				}
 			} else if arr is string {
@@ -217,9 +237,9 @@ fn (mut e Eval) stmt(stmt ast.Stmt) Val {
 			var := ast.Ident{
 				name: stmt.var
 			}
-			e.set(var, .decl_assign, ast.IntegerLiteral{
+			e.set(var, .decl_assign, ast.Literal(ast.IntegerLiteral{
 				val: stmt.low
-			})
+			}))
 			for {
 				e.stmts(stmt.stmts)
 				if e.breaking {

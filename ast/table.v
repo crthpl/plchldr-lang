@@ -8,18 +8,25 @@ pub fn new_table() &Table {
 	for name, typ in builtin_type_names {
 		table.register_type(name, Builtin(typ))
 	}
-	table.register_info(Array{ of: Builtin(string_type) })
+	table.register_info(Array{ of: Builtin.string })
 	return table
 }
 
 [heap]
-struct Table {
+pub struct Table {
 mut:
 	syms []&TypeSym
 pub mut:
 	names        map[string]Type
-	fns          map[string]&FnStmt
+	decls        map[string]map[string]&Stmt // module name -> decl name -> decl
 	global_scope &Scope
+}
+
+// temp
+pub fn (t Table) print_path_sep(str string) {
+	println('${str}: os path sep ' + t.decls['os']['path_separator'] or {
+		error('no os.path_separator')
+	}.str())
 }
 
 [heap]
