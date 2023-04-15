@@ -6,7 +6,7 @@ import ast
 fn (mut p Parser) stmt() ast.Stmt {
 	match p.tok.kind {
 		.key_fn {
-			return p.fun()
+			p.error('functions cannot be declared in a function')
 		}
 		.key_import {
 			p.error('import statements are only allowed at the start of a file')
@@ -31,10 +31,20 @@ fn (mut p Parser) stmt() ast.Stmt {
 		.key_for {
 			return p.for_loop()
 		}
-		.key_struct {
+		.key_struct, .key_enum {
 			return p.type_decl()
 		}
 		else {
+			if p.tok.kind == .name && p.peek.kind == .colon {
+				pos := p.tok.Pos
+				label := p.tok.lit
+				p.next()
+				p.next()
+				return ast.Label{
+					pos: pos
+					label: label
+				}
+			}
 			expr := p.expr(0)
 			if p.tok.kind in token.assign {
 				return p.right_assign_stmt(expr)
@@ -48,7 +58,13 @@ fn (mut p Parser) stmts() []ast.Stmt {
 	p.check(.lcbr)
 	mut stmts := []ast.Stmt{}
 	for p.tok.kind != .rcbr {
-		stmts << p.stmt()
+		stmt := p.stmt()
+		stmts << stmt
+		if stmt is ast.Label {
+			p.label = stmt.label
+		} else {
+			p.label = ''
+		}
 	}
 	p.check(.rcbr)
 	return stmts
@@ -66,7 +82,7 @@ fn (mut p Parser) fn_arg() ast.FnArg {
 	}
 }
 
-fn (mut p Parser) fun() ast.FnStmt {
+fn (mut p Parser) fun() &ast.FnStmt {
 	pos := p.tok.Pos
 	p.check(.key_fn)
 	is_method := p.tok.kind == .lpar
@@ -117,7 +133,7 @@ fn (mut p Parser) fun() ast.FnStmt {
 	}
 	name := p.full_mod + '.' + short_name
 	stmts := p.stmts()
-	f := ast.FnStmt{
+	f := &ast.FnStmt{
 		full_mod: p.full_mod
 		short_name: short_name
 		name: name
@@ -134,7 +150,6 @@ fn (mut p Parser) fun() ast.FnStmt {
 	if recv.typ != 0 {
 		p.table.register_method(recv.typ, short_name, f) or { p.error('method already defined') }
 	}
-	p.table.fns[name] = &f
 	return f
 }
 
@@ -170,6 +185,7 @@ fn (mut p Parser) for_loop() ast.Stmt {
 		stmts := p.stmts()
 		return ast.ForInf{
 			pos: pos
+			label: p.label
 			stmts: ast.Block{
 				stmts: stmts
 				scope: p.close_scope()
@@ -178,18 +194,18 @@ fn (mut p Parser) for_loop() ast.Stmt {
 	}
 	var_pos := p.tok.Pos
 	mut var := p.tok.lit
-	p.check(.name)
-	if p.tok.kind == .key_in && p.peek.kind == .num {
+	p.next()
+	if p.prev.kind == .name && p.tok.kind == .key_in && p.peek.kind == .num {
 		p.next()
 		low := p.tok.lit
 		p.check(.num)
-		p.check(.dotdot)
+		p.check(.colon)
 		high := p.tok.lit
 		p.check(.num)
 		p.open_scope()
 		p.scope.vars[var] = &ast.Var{
 			name: var
-			typ: ast.i64_type
+			typ: ast.Builtin.i64.typ()
 			init: var_pos
 		}
 		stmts := p.stmts()
@@ -198,12 +214,14 @@ fn (mut p Parser) for_loop() ast.Stmt {
 			var: var
 			low: low
 			high: high
+			label: p.label
 			stmts: ast.Block{
 				stmts: stmts
 				scope: p.close_scope()
 			}
 		}
-	} else if p.tok.kind == .key_in || (p.tok.kind == .comma && p.peek.kind == .name) {
+	} else if p.prev.kind == .name
+		&& (p.tok.kind == .key_in || (p.tok.kind == .comma && p.peek.kind == .name)) {
 		mut iter := ''
 		if p.tok.kind == .comma {
 			iter = var
@@ -221,7 +239,7 @@ fn (mut p Parser) for_loop() ast.Stmt {
 		if iter != '' {
 			p.scope.vars[iter] = &ast.Var{
 				name: iter
-				typ: ast.i64_type
+				typ: ast.Builtin.i64.typ()
 				init: var_pos
 			}
 		}
@@ -231,23 +249,37 @@ fn (mut p Parser) for_loop() ast.Stmt {
 			var: var
 			iter: iter
 			expr: expr
+			label: p.label
 			stmts: ast.Block{
 				stmts: stmts
 				scope: p.close_scope()
 			}
 		}
-	} else {
+	} else if p.prev.kind == .name {
 		p.back(1)
 		p.open_scope()
 		init := if p.tok.kind != .semi { p.stmt() } else { ast.EmptyStmt{} }
+		if p.tok.kind == .lcbr && init is ast.Expr {
+			stmts := p.stmts()
+			return ast.For{
+				expr: init
+				pos: pos
+				label: p.label
+				stmts: ast.Block{
+					stmts: stmts
+					scope: p.close_scope()
+				}
+			}
+		}
+
 		p.check(.semi)
 		cond := if p.tok.kind != .semi {
 			p.expr(0)
 		} else {
-			ast.BoolLiteral{
+			ast.Literal(ast.BoolLiteral{
 				pos: p.tok.Pos
 				val: true
-			}
+			})
 		}
 		p.check(.semi)
 		loop := if p.tok.kind != .lcbr { p.stmt() } else { ast.EmptyStmt{} }
@@ -257,6 +289,21 @@ fn (mut p Parser) for_loop() ast.Stmt {
 			init: init
 			cond: cond
 			loop: loop
+			label: p.label
+			stmts: ast.Block{
+				stmts: stmts
+				scope: p.close_scope()
+			}
+		}
+	} else {
+		p.back(1)
+		expr := if p.tok.kind != .lcbr { p.expr(0) } else { ast.EmptyExpr{} }
+		p.open_scope()
+		stmts := p.stmts()
+		return ast.For{
+			expr: expr
+			pos: pos
+			label: p.label
 			stmts: ast.Block{
 				stmts: stmts
 				scope: p.close_scope()

@@ -14,15 +14,20 @@ pub mut:
 	vars     map[string]&Var
 }
 
-fn (s &Scope) str() string {
-	mut vars := ''
-	for curs := s; curs != voidptr(0); curs = curs.parent {
-		vars = curs.vars.keys().str() + '\n' + vars
-	}
+fn (mut s Scope) str() string {
 	return 'ast.Scope{
-	file: \'$s.file\'
+	file: \'${s.file}\'
 	vars:
-$vars}'
+${s.var_str()}
+'
+}
+
+fn (mut s Scope) var_str() string {
+	return if s.parent != unsafe { nil } {
+		s.parent.var_str()
+	} else {
+		''
+	} + '\n' + ' > ' + s.vars.keys().str()
 }
 
 pub fn new_scope(parent &Scope, from int, file string) &Scope {
@@ -37,7 +42,7 @@ pub fn (scope &Scope) find_var(name string) ?&Var {
 	if var := scope.vars[name] {
 		return var
 	}
-	if scope.parent != voidptr(0) {
+	if scope.parent != unsafe { nil } {
 		return scope.parent.find_var(name)
 	}
 	return none

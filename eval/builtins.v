@@ -51,7 +51,7 @@ pub const (
 				return Err('args does not take arguments')
 			}
 			return Array{
-				sym: e.table.get_sym(ast.string_type)
+				sym: e.table.get_sym(ast.Builtin.string.typ())
 				vals: os.args[1..].map(Val(it))
 			}
 		}
@@ -97,13 +97,13 @@ pub const (
 		}
 	}
 	builtin_rets = {
-		'println':  [ast.void_type]
-		'eprintln': [ast.void_type]
-		'print':    [ast.void_type]
-		'eprint':   [ast.void_type]
-		'assert':   [ast.void_type]
-		'args':     [ast.stringarr_type]
-		'exit':     [ast.void_type]
-		'syscall':  [ast.u64_type]
+		'println':  [ast.Builtin.void.typ()]
+		'eprintln': [ast.Builtin.void.typ()]
+		'print':    [ast.Builtin.void.typ()]
+		'eprint':   [ast.Builtin.void.typ()]
+		'assert':   [ast.Builtin.void.typ()]
+		'args':     [ast.Builtin.stringarr.typ()]
+		'exit':     [ast.Builtin.void.typ()]
+		'syscall':  [ast.Builtin.u64.typ()]
 	}
 )

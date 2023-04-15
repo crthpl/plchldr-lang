@@ -29,9 +29,41 @@ struct Function {
 	recv Val
 }
 
-type Val = Array | Err | Function | Ptr | Struct | Void | bool | i64 | rune | string | u64
+struct Map {
+mut:
+	sym     ast.TypeSym
+	entries []MapEntry
+}
+
+struct Enum {
+	sym ast.TypeSym
+	val u64
+}
+
+struct MapEntry {
+mut:
+	left  Val
+	right Val
+}
+
+type Val = Array
+	| Enum
+	| Err
+	| Function
+	| Map
+	| Ptr
+	| Struct
+	| Void
+	| bool
+	| i64
+	| rune
+	| string
+	| u64
 
 fn (v Val) str() string {
+	if v is Map {
+		return '$v.sym{\n' + v.entries.map('\t$it.left.str(): $it.right.str()').join('\n') + '\n}'
+	}
 	return match v {
 		Err {
 			'runtime: $v.str()'
@@ -66,28 +98,34 @@ fn (v Val) str() string {
 		Struct {
 			v.sym.str() + v.fields.str()
 		}
+		Enum {
+			'${v.sym}.${(v.sym.info as ast.Enum).fields[v.val]}'
+		}
+		else {
+			panic('no string for eval.Val')
+		}
 	}
 }
 
 fn (e Eval) get_type(v Val) ast.Type {
 	return match v {
 		Err {
-			ast.err_type
+			ast.Builtin.err.typ()
 		}
 		Void {
-			ast.void_type
+			ast.Builtin.void.typ()
 		}
 		i64 {
-			ast.i64_type
+			ast.Builtin.i64.typ()
 		}
 		rune {
-			ast.rune_type
+			ast.Builtin.rune.typ()
 		}
 		string {
-			ast.string_type
+			ast.Builtin.string.typ()
 		}
 		bool {
-			ast.bool_type
+			ast.Builtin.bool.typ()
 		}
 		Array {
 			e.table.get_type(v.sym.info) or { panic('invalid type') }

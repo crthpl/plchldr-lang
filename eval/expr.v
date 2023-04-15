@@ -15,9 +15,6 @@ fn (mut e Eval) expr(expr ast.Expr) Val {
 				vals: arr
 			}
 		}
-		ast.BoolLiteral {
-			return expr.val
-		}
 		ast.CallExpr {
 			// if expr.left is ast.SelectorExpr {
 			//	if expr.left.left is ast.Ident {
@@ -27,14 +24,14 @@ fn (mut e Eval) expr(expr ast.Expr) Val {
 			//}
 			return e.run_func(expr.left, ...e.exprs(expr.args))
 		}
+		ast.CastExpr {
+			return e.expr(expr.expr)
+		}
 		ast.IfExpr {
 			if e.expr(expr.cond) as bool {
 				return e.stmts(expr.stmts)
 			}
 			return Void{}
-		}
-		ast.IntegerLiteral {
-			return expr.val.i64()
 		}
 		ast.IndexExpr {
 			left := e.expr(expr.left)
@@ -105,17 +102,56 @@ fn (mut e Eval) expr(expr ast.Expr) Val {
 				}
 			}] or { e.error('corrupted stack: ptrs:{$e.local_ptrs}, stack:{$e.stack}', expr.pos) }
 		}
-		ast.MatchExpr {
-			val := e.expr(expr.expr)
-			for i, be in expr.bexprs {
-				if i == expr.elsei {
-					return e.stmts(expr.stmtss[i])
+		ast.Literal {
+			match expr {
+				ast.BoolLiteral {
+					return expr.val
 				}
-				if e.expr(be) == val {
-					return e.stmts(expr.stmtss[i])
+				ast.EnumLiteral {
+					sym := e.table.get_sym(expr.typ)
+					return Enum{
+						sym: sym
+						val: u64((sym.info as ast.Enum).fields.index(expr.field))
+					}
+				}
+				ast.IntegerLiteral {
+					return expr.val.i64()
+				}
+				ast.RuneLiteral {
+					return expr.val
+				}
+				ast.StringLiteral {
+					return expr.val
 				}
 			}
-			e.error('no else block!', expr.pos)
+		}
+		ast.MapInit {
+			mut val := Map{
+				sym: e.table.get_sym(expr.typ)
+				entries: []MapEntry{cap: expr.left.len}
+			}
+			for i, left in expr.left {
+				val.entries << MapEntry{
+					left: e.expr(left)
+					right: e.expr(expr.right[i])
+				}
+			}
+			return val
+		}
+		ast.MatchExpr {
+			val := e.expr(expr.expr)
+			for i, cond in expr.conds {
+				for _ in cond {
+					panic('hepl :(')
+					if val == val {
+						return e.stmts(expr.stmtss[i])
+					}
+				}
+			}
+			if expr.has_else {
+				return e.stmts(expr.stmtss.last())
+			}
+			e.error('no else block; not all cases are handled!', expr.pos)
 		}
 		ast.PrefixExpr {
 			val := e.expr(expr.right)
@@ -133,14 +169,11 @@ fn (mut e Eval) expr(expr ast.Expr) Val {
 				}
 			}
 		}
-		ast.RuneLiteral {
-			return expr.val
-		}
 		ast.SelectorExpr {
 			if expr.left is ast.Ident {
 				if full_mod := e.file.imports[expr.left.name] {
 					if mod := e.modules[full_mod] {
-						if fun := mod[expr.sel] {
+						if fun := mod[expr.left.name + '.' + expr.sel] {
 							return Function{
 								f: &(fun as ast.FnStmt)
 							}
@@ -152,9 +185,6 @@ fn (mut e Eval) expr(expr ast.Expr) Val {
 				}
 			}
 			return e.get_field(expr.left, expr.sel)
-		}
-		ast.StringLiteral {
-			return expr.val
 		}
 		ast.StructInit {
 			mut res := map[string]Val{}
